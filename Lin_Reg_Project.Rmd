@@ -1,0 +1,324 @@
+---
+title: 'MPG performance: manual or automatic transmission?'
+author: "Guillaume Dreyer"
+date: "March 20, 2015"
+output: html_document
+---
+
+
+## Executive summary.
+
+We present quantitative results regarding the MPG difference for manual and automatic transmission cars. Our study reveals that MPG is influenced by different factors in each group.
+
+## Main Report.
+
+### 1. Some exploratory analysis. 
+
+As a first look at our data, let's calculate the **mean** of the values shown in the 'mtcars' dataset by aggregating the latter with respect to the (binary) variable 'am' (0: automatic, 1: manual). Also, it is natural to take into account the number of cylinders, so let's aggregate using the variable 'cyl' as well. 
+
+```{r echo=FALSE}
+attach(mtcars)
+aggreg_mtcars <- aggregate(mtcars, mtcars[c('am', 'cyl')], FUN = mean)[-c(1,2)]
+aggreg_mtcars <- aggreg_mtcars[order(aggreg_mtcars$am),]
+aggreg_mtcars <- apply(aggreg_mtcars, f<-function(x){round(x,digits = 3)},MARGIN = 2)
+
+T4 <- t.test(mtcars[am==1 & cyl==4,]$mpg, mtcars[am==0 & cyl==4,]$mpg)
+T6 <- t.test(mtcars[am==1 & cyl==6,]$mpg, mtcars[am==0 & cyl==6,]$mpg)
+T8 <- t.test(mtcars[am==1 & cyl==8,]$mpg, mtcars[am==0 & cyl==8,]$mpg)
+detach(mtcars)
+```
+
+
+```{r}
+aggreg_mtcars
+```
+For a given number of cylinders, the above dataset suggests that MPG performance of cars with manual transmission tends to be higher than that of automatic ones. A series of t tests confirms this obervation for **4 cylinders**. We obtain a **t statistic** equal to `r T4$statistic` and an **confidence interval** equal to `r T4$conf.int`, which is **conlusive**. However, for **6 and 8 cylinders**, the **confidence intervals** are `r T6$conf.int` and `r T8$conf.int`, respectively. Since they both contain `r 0`, the t test is **inconclusive in those two cases**. 
+
+
+```{r echo=FALSE}
+attach(mtcars)
+f <-function(x){
+        function(y){{cor(x, y)}
+        }
+}
+
+cor_mpg <- sort(abs(round(
+        apply(mtcars, FUN = f(mtcars$mpg), MARGIN = 2)[-1]
+        ,digits = 3)),decreasing = T)
+
+reg <- lm(mtcars$mpg ~ mtcars$wt)
+detach(mtcars)
+```
+
+
+To conclude our exploritary analysis, we determine the most influencial factor for the variable 'mpg'. By computing the (absolute) values of the **correlation** between 'mpg' and the remaining variables, we conclude that the **weight** 'wt' has the strongest impact, as shown below.
+
+```{r}
+cor_mpg
+```
+
+The graph shown in **Fig 1** of the **Appendix** represents the **MPG** 'mpg' as a function of the **weight** 'wt'. We compute the linear regression of 'mpg' against 'wt': the **intercept** is `r round(reg$coef[1],3)`, and the **slope** is `r round(reg$coef[2],3)`.
+
+
+## 2. Quantifying the MPG difference between automatics and manuals.
+
+
+
+
+```{r echo=FALSE}
+attach(mtcars)
+f <-function(x){
+        function(y){{cor(x, y)}
+        }
+}
+
+cor_mpg <- sort(
+        abs(apply(mtcars, FUN = f(mtcars$mpg), MARGIN = 2)[-1]),
+        decreasing = T)
+
+DF_a <- mtcars[mtcars$am==0,][names(mtcars)!='am']
+cor_mpg_a <- sort(abs(apply(DF_a, FUN = f(DF_a$mpg), MARGIN = 2)[-1]),
+                  decreasing = T)
+        
+DF_m <- mtcars[mtcars$am==1,][names(mtcars)!='am']
+cor_mpg_m <- sort(abs(apply(DF_m, FUN = f(DF_m$mpg), MARGIN = 2)[-1]),
+                  decreasing = T)
+detach(mtcars)
+```
+
+t tests in **Part 1** fail to answer whether the MPG difference between manuals and automatics is better for 6 and 8 cylinders. Therefore, We now want to approach the MPG difference differently by **understanding which factors influence the MPG**. Below, we calculate, for each group, the (absolute value of) correlation between 'mpg' and the remaining variables.
+
+```{r}
+round(cor_mpg_a,3);round(cor_mpg_m,3);
+```
+
+For **automatics**, the most influencial factor is the **gross horsepower** 'hp', whereas, for **manuals**, it is the **weight** 'wt'. The graphs **Fig. 2** of the **Appendix** show 'mpg' as a function of 'wt' for manuals, and as a function of 'hp' for automatics, together with a **regression line** of 'mpg' against the other variable. For **manuals**, the diagnostic is very conlusive: we have a nice cluster og points along the regression line, no apparent outlier. For automatics, the cluster is a little more sparsed, though again no obvious outlier. The command 'dfbetas' in **R** enables us to quantify the influence of each point on the regression line, by comparing the difference of coefficients of the line regression, with and without each of the points. We present the values for **automatics** only, for space reason. Also, **Fig. 3** shows the **mpg residuals** in each group.
+
+```{r echo=FALSE}
+        DF_m <- mtcars[mtcars$am==1,][names(mtcars)!='am']
+        DF_a <- mtcars[mtcars$am==0,][names(mtcars)!='am']
+        fit_m <- lm(DF_m$mpg ~ DF_m$wt)
+        fit_a <- lm(DF_a$mpg ~ DF_a$hp)
+
+df_betas_a <- round(dfbetas(fit_a),3)
+df_betas_m <- round(dfbetas(fit_m),3)
+
+#names(mtcars)
+
+#cor_resid_a <- sort(abs(apply(mtcars[mtcars$am==0,-c(4)], FUN = f(fit_a$resid), MARGIN = 2)),decreasing = T)
+
+#cor_resid_m <- sort(abs(apply(mtcars[mtcars$am==1,-c(6)], FUN = f(fit_m$resid), MARGIN = 2)[-1]),decreasing = T)
+
+#c(cor_resid_a[1],cor_resid_m[1]);
+```
+
+
+```{r}
+sort(abs(round(df_betas_a[,1],3)),decreasing=TRUE)
+sort(abs(round(df_betas_a[,2],3)), decreasing=TRUE)
+```
+
+To conclude, a second correlation analysis between the **mpg residuals** and the remaining variables enables to determine the best regressor for the residuals, thus for 'mpg'. Fig. 4 shows, for each group, the graph of the **mpg residuals** as a function of its **best regressor**, together with the line regression. **In both groups, the clusters are quite sparsed, and as a result, we conclude that a multivariate linear model is not ideal**.    
+
+
+
+
+# Conclusion.
+
+In the case of **4 cylinders**, **manuals** clearly have a better MPG than **automatics**. However, this difference is unclear for the two entire groups, as the influencing factors differ from one group to another.
+
+
+# Appendix.
+
+```{r echo=FALSE}
+graph1 <- function(){
+        par(mfrow=c(1,1))
+        plot(mtcars$wt[mtcars$cyl==4], mtcars$mpg[mtcars$cyl==4],
+             col='red', pch=19, xlim=c(1,5.5), ylim=c(10,35), 
+             main = 'Fig. 1: MPG versus Weight', 
+             xlab = 'wt: Weight (lb/1000)', 
+             ylab='mpg: Miles/(US) gallon')
+        abline(lm(mtcars$mpg ~ mtcars$wt))
+        points(mtcars$wt[mtcars$cyl==6], mtcars$mpg[mtcars$cyl==6],
+               col='green', pch=19)
+        points(mtcars$wt[mtcars$cyl==8], mtcars$mpg[mtcars$cyl==8],
+               col='blue', pch=19)
+        legend("bottomleft", 
+               legend = c('4-cylinder', '6-cylinder', '8-cylinder'),
+               pch =c(19, 19, 19), col=c('red', 'green', 'blue'))
+        }
+```
+
+```{r}
+graph1()
+```
+
+
+
+
+```{r echo=FALSE}
+graph2 <- function(){
+        DF_a <- mtcars[mtcars$am==0,][names(mtcars)!='am']
+        DF_m <- mtcars[mtcars$am==1,][names(mtcars)!='am']
+        
+        par(mfrow=c(1,2))
+        plot(DF_m$wt[DF_m$cyl==4], DF_m$mpg[DF_m$cyl==4],
+             col='red', pch=19, xlim=c(1,5.5), ylim=c(10,35), 
+             main = 'Manuals:\nMPG versus Weight', 
+             cex.main=1, 
+             xlab = 'wt: Weight (lb/1000)', 
+             ylab='mpg: Miles/(US) gallon')
+        fit_m <- lm(DF_m$mpg ~ DF_m$wt)
+        abline(fit_m)
+        points(DF_m$wt[DF_m$cyl==6], DF_m$mpg[DF_m$cyl==6],
+               col='green', pch=19)
+        points(DF_m$wt[DF_m$cyl==8], DF_m$mpg[DF_m$cyl==8],
+               col='blue', pch=19)
+        legend("bottomleft", 
+               legend = c('4-cylinder', '6-cylinder', '8-cylinder'),
+               pch =c(19, 19, 19), col=c('red', 'green', 'blue'))
+        
+        plot(DF_a$hp[DF_a$cyl==4], DF_a$mpg[DF_a$cyl==4],
+             col='red', pch=19, xlim=c(0,250), ylim=c(10,23.5), 
+             main = 'Automatics:\nMPG versus Gross horsepower',
+             cex.main=1,
+             xlab = 'hp: Gross horsepower', 
+             ylab='mpg: Miles/(US) gallon')
+        fit_a <- lm(DF_a$mpg ~ DF_a$hp)
+        abline(fit_a)
+        points(DF_a$hp[DF_a$cyl==6], DF_a$mpg[DF_a$cyl==6],
+               col='green', pch=19)
+        points(DF_a$hp[DF_a$cyl==8], DF_a$mpg[DF_a$cyl==8],
+               col='blue', pch=19)
+        legend("bottomleft", 
+               legend = c('4-cylinder', '6-cylinder', '8-cylinder'),
+               pch =c(19, 19, 19), col=c('red', 'green', 'blue')) 
+        
+        title(main = 'Fig. 2: Graph per group', outer=TRUE, line=-1.25)
+        }
+```
+
+```{r}
+graph2()
+```
+
+
+```{r echo=FALSE}
+graph3 <- function(){
+        DF_m <- mtcars[mtcars$am==1,][names(mtcars)!='am']
+        DF_a <- mtcars[mtcars$am==0,][names(mtcars)!='am']
+        fit_m <- lm(DF_m$mpg ~ DF_m$wt)
+        fit_a <- lm(DF_a$mpg ~ DF_a$hp)
+        
+        par(mfrow=c(1,2))
+        #plot(DF_m$wt, fit_m$resid)
+        plot(DF_m$wt[DF_m$cyl==4], fit_m$resid[DF_m$cyl==4],
+             col='red', pch=19, xlim=c(1.5,3.6), ylim=c(-4.2,6), 
+             main = 'Manuals:\n Residuals mpg versus wt', 
+             cex.main=1, 
+             xlab = 'wt: Weight (lb/1000)', 
+             ylab='mpg: residuals')
+        points(DF_m$wt[DF_m$cyl==6], fit_m$resid[DF_m$cyl==6],
+               col='green', pch=19)
+        points(DF_m$wt[DF_m$cyl==8], fit_m$resid[DF_m$cyl==8],
+               col='blue', pch=19)
+        legend("topright", cex = 0.75,
+               legend = c('4-cylinder', '6-cylinder', '8-cylinder'),
+               pch =c(19, 19, 19), col=c('red', 'green', 'blue'))
+        
+        #plot(DF_a$hp, fit_a$resid)
+        plot(DF_a$hp[DF_a$cyl==4], fit_a$resid[DF_a$cyl==4],
+             col='red', pch=19, xlim=c(50,250), ylim=c(-4.2,3.1), 
+             main = 'Automatics:\n Residuals mpg versus hp', 
+             cex.main=1, 
+             xlab = 'hp: Gross horsepower', 
+             ylab='mpg: residuals')
+        points(DF_a$hp[DF_a$cyl==6], fit_a$resid[DF_a$cyl==6],
+               col='green', pch=19)
+        points(DF_a$hp[DF_a$cyl==8], fit_a$resid[DF_a$cyl==8],
+               col='blue', pch=19)
+        legend("bottomleft", cex = 0.75,
+               legend = c('4-cylinder', '6-cylinder', '8-cylinder'),
+               pch =c(19, 19, 19), col=c('red', 'green', 'blue'))
+        
+        title(main = 'Fig. 3: Residuals per group', 
+              outer=TRUE, line=-0.75)
+        }
+``` 
+        
+```{r}
+graph3()
+```  
+
+
+```{r echo=FALSE}
+graph4 <- function(){
+        DF_m <- mtcars[mtcars$am==1,][names(mtcars)!='am']
+        DF_a <- mtcars[mtcars$am==0,][names(mtcars)!='am']
+        fit_m <- lm(DF_m$mpg ~ DF_m$wt)
+        fit_a <- lm(DF_a$mpg ~ DF_a$hp)
+        
+        
+         par(mfrow=c(1,2))
+        plot(DF_m$qsec[DF_m$cyl==4], fit_m$resid[DF_m$cyl==4],
+             col='red', pch=19, ylim=c(-2.7,6.4), xlim=c(14,20), 
+             main = 'Manuals:\n mpg residuals versus qsec', 
+             cex.main=1.0, 
+             xlab = 'qsec: 1/4 mile time', 
+             ylab='mpg residuals')
+        points(DF_m$qsec[DF_m$cyl==6], fit_m$resid[DF_m$cyl==6],
+               col='green', pch=19)
+        points(DF_m$qsec[DF_m$cyl==8], fit_m$resid[DF_m$cyl==8],
+               col='blue', pch=19)
+        abline(lm(fit_m$resid ~ DF_m$qsec))
+        legend("topleft", cex = 0.75,
+               legend = c('4-cylinder', '6-cylinder', '8-cylinder'),
+               pch =c(19, 19, 19), col=c('red', 'green', 'blue'))
+        
+       
+        #plot(DF_m$qsec, fit_m$resid)
+        plot(DF_a$wt[DF_a$cyl==4], fit_a$resid[DF_a$cyl==4],
+            col='red', pch=19, ylim=c(-4.3,3.2), xlim=c(2.3,5.5), 
+            main = 'Automatics:\n mpg residuals versus wt', 
+             cex.main=1.0, 
+             xlab = 'wt: Weight (lb/1000)', 
+             ylab='mpg residuals')
+        points(DF_a$wt[DF_a$cyl==6], fit_a$resid[DF_a$cyl==6],
+               col='green', pch=19)
+        points(DF_a$wt[DF_a$cyl==8], fit_a$resid[DF_a$cyl==8],
+               col='blue', pch=19)
+        abline(lm(fit_a$resid ~ DF_a$wt))
+        legend("topright", cex = 0.75,
+               legend = c('4-cylinder', '6-cylinder', '8-cylinder'),
+               pch =c(19, 19, 19), col=c('red', 'green', 'blue'))
+        
+        title(main = 'Fig. 4: Residuals per group against other variables', outer=TRUE, line=-0.75)
+        }
+``` 
+
+```{r}
+graph4()
+```
+
+        
+        
+
+```{r echo=FALSE}
+DF <- mtcars[order(mtcars$wt,decreasing=T),][-(1:3),]
+attach(DF)
+TT4 <- t.test(DF[DF$am==1 & DF$cyl==4,]$mpg,
+              DF[DF$am==0 & DF$cyl==4,]$mpg)
+TT6 <- t.test(DF[DF$am==1 & DF$cyl==6,]$mpg,
+              DF[DF$am==0 & DF$cyl==6,]$mpg)
+TT8 <- t.test(DF[DF$am==1 & DF$cyl==8,]$mpg,
+              DF[DF$am==0 & DF$cyl==8,]$mpg)
+length(DF$am)
+detach(DF)
+```
+
+
+
+
+
+
+
